@@ -53,6 +53,7 @@ import (
 	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
+	chaininfo "github.com/cosmos/evm/x/evm/precompiles/chaininfo"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
@@ -486,10 +487,9 @@ func NewExampleApp(
 	)
 
 	// Add our custom precompile to the EVM
-	app.EvmKeeper.WithPrecompiles(
-		map[common.Address]vm.PrecompiledContract{
-			chaininfo.PrecompileAddress: &chaininfo.ChainInfoPrecompile{},
-		},
+	app.EVMKeeper.RegisterStaticPrecompile(
+		chaininfo.PrecompileAddress,
+		&chaininfo.ChainInfoPrecompile{},
 	)
 
 	// enable virtual fee collection
