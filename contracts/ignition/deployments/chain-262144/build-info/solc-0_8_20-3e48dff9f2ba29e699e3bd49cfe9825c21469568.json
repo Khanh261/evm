@@ -1,0 +1,52 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_20-3e48dff9f2ba29e699e3bd49cfe9825c21469568",
+  "solcVersion": "0.8.20",
+  "solcLongVersion": "0.8.20+commit.a1b79de6",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.12.0"
+  },
+  "userSourceNameMap": {
+    "solidity/deploy/MyDapp.sol": "project/solidity/deploy/MyDapp.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "shanghai",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/solidity/deploy/IChainInfo.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IChainInfo {\n    // This tells Hardhat how to talk to the Go precompile\n    function getCosmosBlockHeight() external view returns (uint256);\n}\n"
+      },
+      "project/solidity/deploy/MyDapp.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\nimport \"./IChainInfo.sol\";\n\ncontract MyDapp {\n    // The exact address we hardcoded in the Go file\n    address constant PRECOMPILE_ADDR = 0x0000000000000000000000000000000000000999;\n\n    function checkNativeHeight() public view returns (uint256) {\n        // Calls the Go code and returns the result!\n        return IChainInfo(PRECOMPILE_ADDR).getCosmosBlockHeight();\n    }\n}\n"
+      }
+    }
+  }
+}
