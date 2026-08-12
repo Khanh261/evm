@@ -485,6 +485,13 @@ func NewExampleApp(
 		),
 	)
 
+	// Add our custom precompile to the EVM
+	app.EvmKeeper.WithPrecompiles(
+		map[common.Address]vm.PrecompiledContract{
+			chaininfo.PrecompileAddress: &chaininfo.ChainInfoPrecompile{},
+		},
+	)
+
 	// enable virtual fee collection
 	app.EVMKeeper.EnableVirtualFeeCollection()
 
