@@ -20,7 +20,7 @@ w3 = Web3(Web3.HTTPProvider(rpc))
 
 # Load ABI
 abi = json.load(open("$ABI_PATH"))
-contract = w3.eth.contract(address=Web3.toChecksumAddress("$PRE_ADDR"), abi=abi)
+contract = w3.eth.contract(address=w3.to_checksum_address("$PRE_ADDR"), abi=abi)
 
 # Call admin() function
 try:
