@@ -32,10 +32,15 @@ import (
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	erc20v2 "github.com/cosmos/evm/x/erc20/v2"
+	chaininfo "github.com/cosmos/evm/x/evm/precompiles/chaininfo"
 	"github.com/cosmos/evm/x/feemarket"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
+	"github.com/cosmos/evm/x/validatorgroup"
+	vgkeeper "github.com/cosmos/evm/x/validatorgroup/keeper"
+	vgprecompile "github.com/cosmos/evm/x/validatorgroup/precompile"
+	vgtypes "github.com/cosmos/evm/x/validatorgroup/types"
 	"github.com/cosmos/evm/x/vm"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	vmrunner "github.com/cosmos/evm/x/vm/runner"
@@ -53,7 +58,6 @@ import (
 	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
-	chaininfo "github.com/cosmos/evm/x/evm/precompiles/chaininfo"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
@@ -182,10 +186,11 @@ type EVMD struct {
 	CallbackKeeper ibccallbackskeeper.ContractKeeper
 
 	// Cosmos EVM keepers
-	FeeMarketKeeper feemarketkeeper.Keeper
-	EVMKeeper       *evmkeeper.Keeper
-	Erc20Keeper     erc20keeper.Keeper
-	EVMMempool      sdkmempool.ExtMempool
+	FeeMarketKeeper      feemarketkeeper.Keeper
+	EVMKeeper            *evmkeeper.Keeper
+	Erc20Keeper          erc20keeper.Keeper
+	ValidatorGroupKeeper vgkeeper.Keeper
+	EVMMempool           sdkmempool.ExtMempool
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -241,7 +246,7 @@ func NewExampleApp(
 		// ibc keys
 		ibcexported.StoreKey, ibctransfertypes.StoreKey,
 		// Cosmos EVM store keys
-		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey,
+		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, vgtypes.StoreKey,
 	)
 	oKeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
@@ -442,6 +447,7 @@ func NewExampleApp(
 		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
 	)
+	app.ValidatorGroupKeeper = vgkeeper.NewKeeper(keys[vgtypes.StoreKey])
 
 	// instantiate IBC transfer keeper before the EVM keeper so precompiles receive a non-nil reference
 	app.TransferKeeper = transferkeeper.NewKeeper(
@@ -490,6 +496,10 @@ func NewExampleApp(
 	app.EVMKeeper.RegisterStaticPrecompile(
 		chaininfo.PrecompileAddress,
 		&chaininfo.ChainInfoPrecompile{},
+	)
+	app.EVMKeeper.RegisterStaticPrecompile(
+		vgprecompile.PrecompileAddress,
+		vgprecompile.NewPrecompile(app.ValidatorGroupKeeper),
 	)
 
 	// enable virtual fee collection
@@ -590,6 +600,7 @@ func NewExampleApp(
 		vmModule,
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
+		validatorgroup.NewAppModule(app.ValidatorGroupKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager which is in charge of setting up basic,
@@ -676,6 +687,7 @@ func NewExampleApp(
 		evmtypes.ModuleName,
 		feemarkettypes.ModuleName,
 		erc20types.ModuleName,
+		vgtypes.ModuleName,
 
 		ibctransfertypes.ModuleName,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
@@ -814,6 +826,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		MaxTxGasWanted:         maxGasWanted,
 		DynamicFeeChecker:      true,
 		PendingTxListener:      app.onPendingTx,
+		ValidatorGroupKeeper:   app.ValidatorGroupKeeper,
 	}
 	if err := options.Validate(); err != nil {
 		panic(err)

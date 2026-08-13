@@ -3,6 +3,7 @@ package ante
 import (
 	cosmosante "github.com/cosmos/evm/ante/cosmos"
 	evmante "github.com/cosmos/evm/ante/evm"
+	validatorgroupante "github.com/cosmos/evm/x/validatorgroup/ante"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibcante "github.com/cosmos/ibc-go/v11/modules/core/ante"
 
@@ -19,7 +20,7 @@ func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		txFeeChecker = evmante.NewDynamicFeeChecker(&feemarketParams)
 	}
 
-	return sdk.ChainAnteDecorators(
+	decorators := []sdk.AnteDecorator{
 		cosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
 		cosmosante.NewAuthzLimiterDecorator( // disable the Msg types that cannot be included on an authz.MsgExec msgs field
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
@@ -40,5 +41,23 @@ func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		ante.NewSigVerificationDecorator(options.AccountKeeper, options.SignModeHandler),
 		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
 		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
-	)
+	}
+
+	if options.ValidatorGroupKeeper != nil {
+		decorators = append(
+			decorators[:6],
+			append(
+				[]sdk.AnteDecorator{validatorGroupDecorator(options.ValidatorGroupKeeper)},
+				decorators[6:]...,
+			)...,
+		)
+	}
+
+	return sdk.ChainAnteDecorators(decorators...)
+}
+
+func validatorGroupDecorator(k interface {
+	IsWhitelisted(ctx sdk.Context, valAddr sdk.ValAddress) bool
+}) sdk.AnteDecorator {
+	return validatorgroupante.NewPermissionedValidatorDecorator(k)
 }

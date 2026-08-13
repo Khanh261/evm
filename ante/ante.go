@@ -3,6 +3,7 @@ package ante
 import (
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	antetypes "github.com/cosmos/evm/ante/types"
+	vgante "github.com/cosmos/evm/x/validatorgroup/ante"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
 	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
@@ -36,6 +37,7 @@ type HandlerOptions struct {
 	// use dynamic fee checker or the cosmos-sdk default one for native transactions
 	DynamicFeeChecker bool
 	PendingTxListener PendingTxListener
+	ValidatorGroupKeeper vgante.Keeper
 }
 
 // Validate checks if the keepers are defined
