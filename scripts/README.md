@@ -25,6 +25,23 @@ Runtime settings in `app.toml` / `config.toml` (JSON-RPC enable, bind
 address, mempool type) are **not** genesis state — a plain restart picks
 those up, no reset needed.
 
+## Admin can only be set at genesis — there is no rotation path
+
+`SetAdmin` is only ever called from `InitGenesis`
+([genesis.go:14-18](../x/validatorgroup/genesis.go#L14-L18)). There is no
+`Msg` service and no `setAdmin` precompile method — the module's `Run()`
+switch only has `admin` (read), `addValidatorAddress`,
+`removeValidatorAddress`, `isWhitelisted`
+([precompile.go:80-116](../x/validatorgroup/precompile/precompile.go#L80-L116)).
+
+That means once the chain has real history, **the admin address can
+never be changed** — the only mechanism (`unsafe-reset-all` + re-edit
+genesis) wipes all chain data, which is fine during dev setup but not an
+option on a live chain. If admin rotation will ever be needed (lost key,
+org handoff), add a `setAdmin(address)` precompile method gated by
+`requireAdmin` (same pattern as `addValidatorAddress`) before going to
+production — treat this as a blocker, not a nice-to-have.
+
 ---
 
 ## 1. First-time node setup
