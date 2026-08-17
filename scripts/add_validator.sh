@@ -12,7 +12,7 @@ if [[ $# -lt 1 ]]; then
   exit 2
 fi
 TARGET="$1"
-ABI_PATH="../x/validatorgroup/precompile/abi.json"
+ABI_PATH="$(dirname "$0")/../x/validatorgroup/precompile/abi.json"
 if [[ ! -f "$ABI_PATH" ]]; then
   echo "ERROR: ABI not found at $ABI_PATH" >&2
   exit 2
@@ -20,15 +20,15 @@ fi
 
 # try to run embedded Python that uses web3
 python3 - <<PY
-import os, sys, json
+import os, json
 from web3 import Web3
 rpc = os.environ.get('VALIDATOR_RPC_URL', '${RPC_URL}')
 w3 = Web3(Web3.HTTPProvider(rpc))
 abi = json.load(open('${ABI_PATH}'))
-contract = w3.eth.contract(address=Web3.toChecksumAddress('0x0000000000000000000000000000000000000808'), abi=abi)
+contract = w3.eth.contract(address=w3.to_checksum_address('0x0000000000000000000000000000000000000808'), abi=abi)
 acct = w3.eth.account.from_key(os.environ['VALIDATOR_PRIVATE_KEY'])
-target = sys.argv[1]
-data = contract.encodeABI(fn_name='addValidatorAddress', args=[Web3.toChecksumAddress(target)])
+target = '${TARGET}'
+data = contract.encodeABI(fn_name='addValidatorAddress', args=[w3.to_checksum_address(target)])
 nonce = w3.eth.get_transaction_count(acct.address)
 tx = {
   'to': contract.address,
