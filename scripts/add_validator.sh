@@ -28,17 +28,16 @@ abi = json.load(open('${ABI_PATH}'))
 contract = w3.eth.contract(address=w3.to_checksum_address('0x0000000000000000000000000000000000000808'), abi=abi)
 acct = w3.eth.account.from_key(os.environ['VALIDATOR_PRIVATE_KEY'])
 target = '${TARGET}'
-data = contract.encodeABI(fn_name='addValidatorAddress', args=[w3.to_checksum_address(target)])
 nonce = w3.eth.get_transaction_count(acct.address)
-tx = {
-  'to': contract.address,
+tx = contract.functions.addValidatorAddress(w3.to_checksum_address(target)).build_transaction({
+  'from': acct.address,
   'value': 0,
   'gas': 200000,
   'gasPrice': w3.eth.gas_price,
   'nonce': nonce,
-  'data': data
-}
+})
 signed = acct.sign_transaction(tx)
-tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+raw_tx = getattr(signed, 'raw_transaction', None) or signed.rawTransaction
+tx_hash = w3.eth.send_raw_transaction(raw_tx)
 print("tx_hash:", tx_hash.hex())
 PY
