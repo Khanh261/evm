@@ -4,6 +4,10 @@ Scripts for managing the `validatorgroup` module's whitelist precompile
 (`0x0000000000000000000000000000000000000808`). Covers first-time node
 setup and day-to-day admin operations.
 
+The same guide is also available as a formatted page:
+[`docs/validatorgroup-runbook.html`](../docs/validatorgroup-runbook.html)
+(open it in a browser). Keep the two in sync when editing.
+
 ## The one rule that matters
 
 `validatorgroup.InitGenesis` (and every other module's `InitGenesis`) only
@@ -67,7 +71,7 @@ run, because none of them apply retroactively:
 ```bash
 GENESIS=~/.evmd/config/genesis.json
 
-# Set the module admin
+# Set the module admin (prompts for the address if not passed as an argument)
 ./scripts/setup_admin.sh 0xYourAdminEvmAddress
 
 # Whitelist the gentx validator(s), or InitGenesis will reject the gentx
@@ -168,22 +172,60 @@ on a box with any public exposure.
 These are live transactions against the running chain — **no reset
 required**, unlike section 1a.
 
+Every script prompts for what it needs, so you can just run it:
+
+```bash
+./scripts/check_admin.sh        # who is admin?
+./scripts/is_whitelisted.sh     # is an address in the group?
+./scripts/add_validator.sh      # add to the whitelist (admin-only tx)
+./scripts/remove_validator.sh   # remove from the whitelist (admin-only tx)
+```
+
+For example:
+
+```
+$ ./scripts/add_validator.sh
+? RPC URL [http://127.0.0.1:8545]: http://10.2.12.177:8545
+? Validator EVM address to ADD to the whitelist: 0x0466...aD33D
+? Admin private key (hidden):
+tx_hash: 0x...
+```
+
+Private key input is hidden — never echoed to the screen and never left
+in shell history. EVM addresses are validated as you type.
+
+`add_validator.sh` and `remove_validator.sh` guard against the ways this
+precompile fails quietly:
+
+- **No-op writes are refused.** `RemoveValidator` calls `store.Delete`
+  unconditionally and the precompile returns `true` either way, so
+  removing a non-whitelisted address (or adding an already-whitelisted
+  one) *succeeds on-chain while changing nothing* — costing gas and
+  reporting a misleading success. Both scripts check current state first
+  and exit without sending a transaction.
+- **Non-admin callers are caught before broadcasting.** Only the admin
+  can modify the whitelist; anyone else gets a reverted transaction that
+  still costs gas. The scripts compare the signer against `admin()` and
+  refuse up front, naming both addresses.
+- **The receipt is checked.** A mined transaction can still have
+  reverted, so a printed `tx_hash` alone means nothing. Both scripts wait
+  for the receipt, verify `status == 1`, then re-read the whitelist to
+  confirm the state actually changed, ending with e.g.
+  `confirmed: 0x... is now whitelisted (block 5523)`.
+
+Anything supplied as an argument or environment variable skips its
+prompt, so the old scripted form still works unchanged:
+
 ```bash
 export VALIDATOR_RPC_URL="http://<node-ip>:8545"
-
-# who is admin?
-./scripts/check_admin.sh
-
-# add a validator to the whitelist (admin-only tx)
 export VALIDATOR_PRIVATE_KEY="<admin's EVM private key>"
 ./scripts/add_validator.sh 0xValidatorEvmAddress
-
-# check whether a specific address is whitelisted
 ./scripts/is_whitelisted.sh 0xValidatorEvmAddress
-
-# remove a validator from the whitelist (admin-only tx)
 ./scripts/remove_validator.sh 0xValidatorEvmAddress
 ```
+
+When stdin isn't a terminal (CI, cron, piped input), a missing required
+value is a clear error with exit code 2 rather than a hung prompt.
 
 Note: `remove_validator.sh` only clears the whitelist entry. It does
 **not** unbond or jail an already-active validator — the ante handler
@@ -193,7 +235,44 @@ separately unbonded.
 
 ---
 
-## 4. Troubleshooting checklist
+## 4. Automated smoke test
+
+`test_validatorgroup.sh` runs the whole cycle with real pass/fail
+assertions: check admin → confirm target isn't already whitelisted → add →
+confirm whitelisted → remove → confirm removed.
+
+Run it with no arguments — it prompts for everything it needs:
+
+```bash
+./scripts/test_validatorgroup.sh
+```
+
+```
+? RPC URL [http://127.0.0.1:8545]:
+? Admin EVM address: 0x...
+? Admin private key (hidden):
+? Test validator EVM address (will be added, then removed): 0x...
+```
+
+The private key prompt is hidden (not echoed, not saved in shell
+history). EVM addresses are validated as you type them.
+
+The test address must **not** already be a real whitelisted validator —
+the script aborts before touching anything if the pre-condition check
+finds it's already in the group, since the test removes it at the end.
+
+It also offers an optional set-admin step (`setup_admin.sh`). That one
+runs `evmd comet unsafe-reset-all` and **wipes all chain history**, so
+it's off unless you opt in and then type `RESET` to confirm. Only use it
+against a fresh/disposable chain.
+
+Setting the matching env vars (`VALIDATOR_RPC_URL`, `ADMIN_ADDR`,
+`ADMIN_PRIVATE_KEY`, `TEST_VALIDATOR_ADDR`) pre-fills the prompts, and
+lets the script run unattended in CI where stdin isn't a terminal.
+
+---
+
+## 5. Troubleshooting checklist
 
 If `evmd start` exits with `status=1`, check `journalctl -u evmd -n 60
 --no-pager | cat` for one of these, roughly in the order they tend to

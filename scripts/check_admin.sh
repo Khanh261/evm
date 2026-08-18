@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RPC_URL="${VALIDATOR_RPC_URL:-http://127.0.0.1:8545}"
-ABI_PATH="$(dirname "$0")/../x/validatorgroup/precompile/abi.json"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_prompt.sh
+source "$SCRIPT_DIR/_prompt.sh"
+
+require_web3
+
+ABI_PATH="$SCRIPT_DIR/../x/validatorgroup/precompile/abi.json"
 PRE_ADDR="0x0000000000000000000000000000000000000808"
+
+prompt_value VALIDATOR_RPC_URL "RPC URL" "http://127.0.0.1:8545"
+RPC_URL="$VALIDATOR_RPC_URL"
 
 if [[ ! -f "$ABI_PATH" ]]; then
     echo "ERROR: ABI not found at $ABI_PATH" >&2
@@ -12,7 +20,7 @@ fi
 
 # Use web3 to properly encode the call and get the selector
 python3 - <<PY
-import os, sys, json
+import sys, json
 from web3 import Web3
 
 rpc = "$RPC_URL"
